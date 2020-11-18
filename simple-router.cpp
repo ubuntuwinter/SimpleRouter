@@ -321,7 +321,10 @@ namespace simple_router
       std::memcpy(ehdr.ether_shost, outIface->addr.data(), ETHER_ADDR_LEN);
       ehdr.ether_type = htons(ethertype_ip);
       // Get ARP cache
-      std::shared_ptr<ArpEntry> arp_entry = m_arp.lookup(ihdr.ip_dst);
+      uint32_t lookupAddress = entry.mask && ((entry.dest & entry.mask) == (outIface->ip & entry.mask))
+                                   ? ihdr.ip_dst
+                                   : entry.gw;
+      std::shared_ptr<ArpEntry> arp_entry = m_arp.lookup(lookupAddress);
       if (!arp_entry)
       // Can't find ARP map
       {
@@ -329,7 +332,7 @@ namespace simple_router
         std::cerr << std::endl;
         // Queue the reply
         std::memcpy(packet.data(), &ehdr, sizeof(ethernet_hdr));
-        std::shared_ptr<ArpRequest> arp_req = m_arp.queueRequest(ihdr.ip_dst, packet, outIface->name);
+        std::shared_ptr<ArpRequest> arp_req = m_arp.queueRequest(lookupAddress, packet, outIface->name);
         return;
       }
       else
