@@ -517,7 +517,7 @@ namespace simple_router
     while (!m_shouldStop)
     {
       // Sending interval
-      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
       // Send waiting packet
       if (!m_waitingPackets.empty())
