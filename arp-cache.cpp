@@ -34,6 +34,14 @@ namespace simple_router
     // FILL THIS IN
 
     // Find invaild entries
+    for (auto iter = m_cacheEntries.begin(); iter != m_cacheEntries.end(); ++iter)
+    {
+      if (!(*iter)->isValid)
+      {
+        iter = m_cacheEntries.erase(iter);
+      }
+    }
+    /*
     std::list<std::shared_ptr<ArpEntry>> inValidEntries;
     for (auto &entry : m_cacheEntries)
     {
@@ -48,6 +56,7 @@ namespace simple_router
     {
       m_cacheEntries.remove(entry);
     }
+    */
 
     // Deal with arpRequest
     std::list<std::shared_ptr<ArpRequest>> temp_arpRequests;
@@ -75,8 +84,8 @@ namespace simple_router
     {
       if (req->nTimesSent >= 5)
       {
-        std::cerr << "Remove numout arp_req." << std::endl;
-        std::cerr << std::endl;
+        // std::cerr << "Remove numout arp_req." << std::endl;
+        // std::cerr << std::endl;
         for (auto &pending_packet : req->packets)
         {
           // This line will cause deadlock, so I have to delete the lock.
@@ -125,15 +134,15 @@ namespace simple_router
           // print_hdrs(packet);
           // std::cerr << std::endl;
           m_router.sendPacket(packet, iface->name);
-          std::cerr << "Send ARP request to interface " << iface->name
-                    // << "(" << ipToString(iface->ip) << "): " << macToString(iface->addr)
-                    // << " to find " << ipToString(req->ip)
-                    << "." << std::endl;
-          std::cerr << std::endl;
+          // std::cerr << "Send ARP request to interface " << iface->name
+          // << "(" << ipToString(iface->ip) << "): " << macToString(iface->addr)
+          // << " to find " << ipToString(req->ip)
+          // << "." << std::endl;
+          // std::cerr << std::endl;
         }
         else
         {
-          std::cerr << "When sending ARP request, can't find out interface! Remove it!" << std::endl;
+          std::cerr << "When sending ARP request, can't find out interface!" << std::endl;
           std::cerr << std::endl;
         }
 

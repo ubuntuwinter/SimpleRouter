@@ -28,7 +28,7 @@ namespace simple_router
   void
   SimpleRouter::handlePacket(const Buffer &packet, const std::string &inIface)
   {
-    std::cerr << "Got packet of size " << packet.size() << " on interface " << inIface << std::endl;
+    // std::cerr << "Got packet of size " << packet.size() << " on interface " << inIface << std::endl;
 
     const Interface *iface = findIfaceByName(inIface);
     if (iface == nullptr)
@@ -37,7 +37,7 @@ namespace simple_router
       return;
     }
 
-    std::cerr << getRoutingTable() << std::endl;
+    // std::cerr << getRoutingTable() << std::endl;
 
     // FILL THIS IN
 
@@ -61,18 +61,18 @@ namespace simple_router
       if (ntohs(ehdr.ether_type) == ethertype_arp)
       {
         // Handle arp packet
-        std::cerr << "It's ARP frame from " << inIface
-                  // << ": " << macToString(iface->addr)
-                  << "." << std::endl;
-        std::cerr << std::endl;
+        // std::cerr << "It's ARP frame from " << inIface
+        // << ": " << macToString(iface->addr)
+        // << "." << std::endl;
+        // std::cerr << std::endl;
         handleARPPacket(packet, inIface);
       }
       else if (ntohs(ehdr.ether_type) == ethertype_ip)
       {
-        std::cerr << "It's IP frame from " << inIface
-                  // << ": " << macToString(iface->addr)
-                  << "." << std::endl;
-        std::cerr << std::endl;
+        // std::cerr << "It's IP frame from " << inIface
+        // << ": " << macToString(iface->addr)
+        // << "." << std::endl;
+        // std::cerr << std::endl;
         handleIPPacket(packet, inIface);
       }
       else
@@ -101,8 +101,8 @@ namespace simple_router
     // ARP Request
     {
       // Get interface in router by ip
-      std::cerr << "It's ARP request." << std::endl;
-      std::cerr << std::endl;
+      // std::cerr << "It's ARP request." << std::endl;
+      // std::cerr << std::endl;
       const Interface *iface = findIfaceByIp(ahdr.arp_tip);
 
       if (iface != nullptr)
@@ -136,17 +136,17 @@ namespace simple_router
         // std::cerr << std::endl;
         // Send reply
         sendPacket(reply_packet, iface->name);
-        std::cerr << "Send reply packet to interface" << iface->name
-                  // << ": " << macToString(iface->addr)
-                  << "." << std::endl;
-        std::cerr << std::endl;
+        // std::cerr << "Send reply packet to interface" << iface->name
+        // << ": " << macToString(iface->addr)
+        // << "." << std::endl;
+        // std::cerr << std::endl;
       }
     }
     else if (ntohs(ahdr.arp_op) == arp_op_reply)
     // ARP Reply
     {
-      std::cerr << "It's ARP reply." << std::endl;
-      std::cerr << std::endl;
+      // std::cerr << "It's ARP reply." << std::endl;
+      // std::cerr << std::endl;
 
       // Insert arp cache
       Buffer mac_address(ETHER_ADDR_LEN);
@@ -156,11 +156,11 @@ namespace simple_router
       // Deal with queue packets
       if (arp_req)
       {
-        int num = 0;
+        // int num = 0;
         for (auto &pending_packet : arp_req->packets)
         {
-          std::cerr << "Send queuing packet " << ++num << "." << std::endl;
-          std::cerr << std::endl;
+          // std::cerr << "Send queuing packet " << ++num << "." << std::endl;
+          // std::cerr << std::endl;
           // Add dest mac address
           std::memcpy(pending_packet.packet.data(), ahdr.arp_sha, ETHER_ADDR_LEN);
           sendPacket(pending_packet.packet, pending_packet.iface);
@@ -208,8 +208,9 @@ namespace simple_router
     if (iface != NULL)
     {
       // Destined to router
-      std::cerr << "IP packet is destined to router." << std::endl;
-      std::cerr << std::endl;
+      // std::cerr << "IP packet is destined to router." << std::endl;
+      // std::cerr << std::endl;
+
       // Judge ip payload
       if (ihdr.ip_p == ip_protocol_icmp)
       {
@@ -248,15 +249,15 @@ namespace simple_router
     else
     {
       // Not desnined to router
-      std::cerr << "IP packet is not destined to router. Forward it." << std::endl;
-      std::cerr << std::endl;
+      // std::cerr << "IP packet is not destined to router. Forward it." << std::endl;
+      // std::cerr << std::endl;
 
       // Decrease TTL
       if (--ihdr.ip_ttl <= 0)
       {
         // Time Exceeded
-        std::cerr << "IP packet time exceeded. Reply ICMP message." << std::endl;
-        std::cerr << std::endl;
+        // std::cerr << "IP packet time exceeded. Reply ICMP message." << std::endl;
+        // std::cerr << std::endl;
         sendICMPPacket(packet, TIME_EXCEEDED);
         return;
       }
@@ -306,8 +307,8 @@ namespace simple_router
 
     case ECHO_REPLY_MESSAGE:
       // Info
-      std::cerr << "Echo Reply. Send ICMP packet." << std::endl;
-      std::cerr << std::endl;
+      // std::cerr << "Echo Reply. Send ICMP packet." << std::endl;
+      // std::cerr << std::endl;
 
       {
         // Packet length != sizeof(icmp_hdr)
@@ -345,6 +346,7 @@ namespace simple_router
     case DESTINATION_HOST_UNREACHABLE:
     case DESTINATION_PORT_UNREACHABLE:
       // Info
+      /*
       if (type == TIME_EXCEEDED)
       {
         std::cerr << "Time exceeded. ";
@@ -359,6 +361,7 @@ namespace simple_router
       }
       std::cerr << "Send ICMP packet." << std::endl;
       std::cerr << std::endl;
+      */
 
       // ICMP reply header info
       std::memset(&icmpt3hdr_reply, 0, sizeof(icmp_t3_hdr));
@@ -440,11 +443,11 @@ namespace simple_router
     // Out interFace
     if (outIface)
     {
-      std::cerr << "Should forward it to interface " << outIface->name
-                // << "(" << ipToString(outIface->ip) << "): "
-                // << macToString(outIface->addr)
-                << "." << std::endl;
-      std::cerr << std::endl;
+      // std::cerr << "Should forward it to interface " << outIface->name
+      // << "(" << ipToString(outIface->ip) << "): "
+      // << macToString(outIface->addr)
+      // << "." << std::endl;
+      // std::cerr << std::endl;
 
       // Ethernet header
       ethernet_hdr ehdr;
@@ -460,8 +463,8 @@ namespace simple_router
       // Can't find ARP map
       {
         // Info
-        std::cerr << "Destination mac address unknown. Queue it." << std::endl;
-        std::cerr << std::endl;
+        // std::cerr << "Destination mac address unknown. Queue it." << std::endl;
+        // std::cerr << std::endl;
 
         // Queue the reply
         std::memcpy(packet.data(), &ehdr, sizeof(ethernet_hdr));
@@ -478,16 +481,18 @@ namespace simple_router
       // Send it
       {
         // Info
-        std::cerr << "Destination mac address known. Send it." << std::endl;
-        std::cerr << std::endl;
+        // std::cerr << "Destination mac address known. Send it." << std::endl;
+        // std::cerr << std::endl;
+
+        // Send it
         memcpy(ehdr.ether_dhost, arp_entry->mac.data(), ETHER_ADDR_LEN);
         std::memcpy(packet.data(), &ehdr, sizeof(ethernet_hdr));
         // print_hdrs(forward_packet);
         // std::cerr << std::endl;
         sendPacket(packet, outIface->name);
-        std::cerr << "Send it to interface " << outIface->name
-                  << "." << std::endl;
-        std::cerr << std::endl;
+        // std::cerr << "Send it to interface " << outIface->name
+        // << "." << std::endl;
+        // std::cerr << std::endl;
       }
     }
     else
