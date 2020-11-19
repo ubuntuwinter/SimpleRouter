@@ -33,7 +33,7 @@ namespace simple_router
   {
     // FILL THIS IN
 
-    // Find the invaild entries
+    // Find invaild entries
     std::list<std::shared_ptr<ArpEntry>> inValidEntries;
     for (auto &entry : m_cacheEntries)
     {
@@ -75,7 +75,6 @@ namespace simple_router
     {
       if (req->nTimesSent >= 5)
       {
-        // TODO: Send icmp host unreachable to source
         std::cerr << "Remove numout arp_req." << std::endl;
         std::cerr << std::endl;
         for (auto &pending_packet : req->packets)
@@ -95,18 +94,14 @@ namespace simple_router
         // First get router interface
         RoutingTableEntry entry = m_router.getRoutingTable().lookup(req->ip);
         const Interface *iface = m_router.findIfaceByName(entry.ifName);
-        if (!iface)
-        {
-          std::cerr << "When sending ARP request, can't find out interface! Remove it!" << std::endl;
-          std::cerr << std::endl;
-        }
-        else
+        if (iface)
         {
           // Ethernet header
           ethernet_hdr ehdr;
           std::memset(ehdr.ether_dhost, 255, ETHER_ADDR_LEN);
           std::memcpy(ehdr.ether_shost, iface->addr.data(), ETHER_ADDR_LEN);
           ehdr.ether_type = htons(ethertype_arp);
+
           // ARP header
           arp_hdr ahdr;
           ahdr.arp_hrd = htons(arp_hrd_ethernet);
@@ -118,10 +113,12 @@ namespace simple_router
           ahdr.arp_sip = iface->ip;
           std::memset(ahdr.arp_tha, 0, ETHER_ADDR_LEN);
           ahdr.arp_tip = req->ip;
+
           // Packet
           Buffer packet(sizeof(ethernet_hdr) + sizeof(arp_hdr));
           std::memcpy(packet.data(), &ehdr, sizeof(ethernet_hdr));
           std::memcpy(packet.data() + sizeof(ethernet_hdr), &ahdr, sizeof(arp_hdr));
+
           // Send Packet
           // std::cerr << "ARP request is like below: " << std::endl;
           // std::cerr << std::endl;
@@ -134,6 +131,12 @@ namespace simple_router
                     << "." << std::endl;
           std::cerr << std::endl;
         }
+        else
+        {
+          std::cerr << "When sending ARP request, can't find out interface! Remove it!" << std::endl;
+          std::cerr << std::endl;
+        }
+
         // Update req info
         req->timeSent = steady_clock::now();
         req->nTimesSent++;
