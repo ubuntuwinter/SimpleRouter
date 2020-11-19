@@ -125,7 +125,7 @@ namespace simple_router
         Buffer reply_packet(sizeof(arp_hdr) + sizeof(ethernet_hdr));
         std::memcpy(reply_packet.data(), &ehdr, sizeof(ethernet_hdr));
         std::memcpy(reply_packet.data() + sizeof(ethernet_hdr), &ahdr_rep, sizeof(arp_hdr));
-        // Output infomation
+        // Output information
         // std::cerr << "I reply it with packet of size " << reply_packet.size() << " below." << std::endl;
         // std::cerr << std::endl;
         // print_hdrs(reply_packet);
@@ -199,6 +199,28 @@ namespace simple_router
     {
       std::cerr << "IP packet is destined to router." << std::endl;
       std::cerr << std::endl;
+      // Forward packet
+      Buffer forward_packet(packet);
+      std::memcpy(forward_packet.data() + sizeof(ethernet_hdr), &ihdr, sizeof(ip_hdr));
+      // Judge the ip overload
+      if (ihdr.ip_p == ip_protocol_icmp)
+      {
+        icmp_hdr icmphdr;
+        std::memcpy(&icmphdr, packet.data() + sizeof(ethernet_hdr) + sizeof(ip_hdr), sizeof(icmp_hdr));
+        if (icmphdr.icmp_type == 8) // ECHO Message
+        {
+          sendICMPPacket(forward_packet, ECHO_REPLY_MESSAGE);
+        }
+        else
+        {
+          std::cerr << "Discard ICMP packet other than ECHO message." << std::endl;
+          std::cerr << std::endl;
+        }
+      }
+      else
+      {
+        sendICMPPacket(forward_packet, DESTINATION_PORT_UNREACHABLE);
+      }
     }
     else
     {
@@ -229,8 +251,6 @@ namespace simple_router
     // IP header
     ip_hdr ihdr;
     std::memcpy(&ihdr, packet.data() + sizeof(ethernet_hdr), sizeof(ip_hdr));
-    // ICMP header
-    icmp_hdr icmphdr;
     // IP reply header
     ip_hdr ihdr_reply;
     std::memcpy(&ihdr_reply, &ihdr, sizeof(ip_hdr));
@@ -249,17 +269,82 @@ namespace simple_router
     case ECHO_MESSAGE:
       break;
     case ECHO_REPLY_MESSAGE:
+      std::cerr << "Echo Reply. Send ICMP packet." << std::endl;
+      std::cerr << std::endl;
+      {
+        // Packet length != sizeof(icmp_hdr)
+        auto icmp_packet_length = packet.size() - sizeof(ethernet_hdr) - sizeof(ip_hdr);
+        // ICMP reeply header info
+        Buffer icmphdr_reply_buffer(icmp_packet_length);
+        std::memcpy(icmphdr_reply_buffer.data(), packet.data() + sizeof(ethernet_hdr) + sizeof(ip_hdr), icmp_packet_length);
+        icmp_hdr *icmphdr_reply = (icmp_hdr *)icmphdr_reply_buffer.data();
+        if (cksum(icmphdr_reply, icmp_packet_length) != 0xffff)
+        {
+          std::cerr << "ICMP packet has wrong checksum, discard it." << std::endl;
+          std::cerr << std::endl;
+          return;
+        }
+        icmphdr_reply->icmp_type = 0;
+        icmphdr_reply->icmp_code = 0;
+        icmphdr_reply->icmp_sum = 0;
+        icmphdr_reply->icmp_sum = cksum(icmphdr_reply, icmp_packet_length);
+        // IP header info
+        ihdr_reply.ip_sum = 0;
+        ihdr_reply.ip_p = ip_protocol_icmp;
+        ihdr_reply.ip_ttl = 64;
+        ihdr_reply.ip_dst = ihdr.ip_src;
+        ihdr_reply.ip_src = ihdr.ip_dst;
+        ihdr_reply.ip_sum = cksum(&ihdr_reply, sizeof(ip_hdr));
+        // Forward packet
+        Buffer forward_packet(packet.size());
+        std::memcpy(forward_packet.data() + sizeof(ethernet_hdr), &ihdr_reply, sizeof(ip_hdr));
+        std::memcpy(forward_packet.data() + sizeof(ethernet_hdr) + sizeof(ip_hdr), icmphdr_reply, icmp_packet_length);
+        // print_hdr_ip((uint8_t *)&ihdr_reply);
+        // print_hdr_icmp((uint8_t *)icmphdr_reply);
+        // std::cerr << std::endl;
+        forwardPacket(forward_packet);
+      }
       break;
     case TIME_EXCEEDED:
-      break;
     case DESTINATION_HOST_UNREACHABLE:
-      // Because not be able to get ARP reply
-      std::cerr << "Destination host unreachable. Send ICMP packet." << std::endl;
+    case DESTINATION_PORT_UNREACHABLE:
+      // Info
+      if (type == TIME_EXCEEDED)
+      {
+        std::cerr << "Time exceeded. ";
+      }
+      else if (type == DESTINATION_HOST_UNREACHABLE)
+      {
+        std::cerr << "Destination host unreachable. ";
+      }
+      else
+      {
+        std::cerr << "Destination port unreachable. ";
+      }
+      std::cerr << "Send ICMP packet." << std::endl;
       std::cerr << std::endl;
-      std::memset(&icmpt3hdr_reply, 0, sizeof(icmp_t3_hdr));
       // ICMP reply header info
-      icmpt3hdr_reply.icmp_type = 3; // Destination unreachable
-      icmpt3hdr_reply.icmp_code = 1; // Destination host unreachable
+      std::memset(&icmpt3hdr_reply, 0, sizeof(icmp_t3_hdr));
+      if (type == TIME_EXCEEDED)
+      {
+        icmpt3hdr_reply.icmp_type = 11; // Time exceeded
+      }
+      else
+      {
+        icmpt3hdr_reply.icmp_type = 3; // Destination host or port unreachable
+      }
+      if (type == TIME_EXCEEDED)
+      {
+        icmpt3hdr_reply.icmp_code = 0; // Time exceeded
+      }
+      else if (type == DESTINATION_HOST_UNREACHABLE)
+      {
+        icmpt3hdr_reply.icmp_code = 1; // Destination host unreachable
+      }
+      else
+      {
+        icmpt3hdr_reply.icmp_code = 3; // Destination port unreachable
+      }
       length = packet.size() - sizeof(ethernet_hdr);
       length = length < ICMP_DATA_SIZE ? length : ICMP_DATA_SIZE;
       std::memcpy(icmpt3hdr_reply.data, packet.data() + sizeof(ethernet_hdr), length);
@@ -268,6 +353,7 @@ namespace simple_router
       ihdr_reply.ip_sum = 0;
       ihdr_reply.ip_p = ip_protocol_icmp;
       ihdr_reply.ip_len = htons(sizeof(ip_hdr) + sizeof(icmp_t3_hdr));
+      ihdr_reply.ip_ttl = 64;
       ihdr_reply.ip_dst = ihdr.ip_src;
       entry = m_routingTable.lookup(ihdr.ip_src);
       iface = findIfaceByName(entry.ifName);
@@ -282,7 +368,7 @@ namespace simple_router
         std::memcpy(forward_packet.data() + sizeof(ethernet_hdr) + sizeof(ip_hdr), &icmpt3hdr_reply, sizeof(icmp_t3_hdr));
         // print_hdr_ip((uint8_t *)&ihdr_reply);
         // print_hdr_icmp((uint8_t *)&icmpt3hdr_reply);
-        std::cerr << std::endl;
+        // std::cerr << std::endl;
         forwardPacket(forward_packet);
       }
       else
@@ -290,8 +376,6 @@ namespace simple_router
         std::cerr << "When sending ICMP packet back, can't find interface." << std::endl;
         std::cerr << std::endl;
       }
-      break;
-    case DESTINATION_PORT_UNREACHABLE:
       break;
     default:
       break;
@@ -333,6 +417,11 @@ namespace simple_router
         // Queue the reply
         std::memcpy(packet.data(), &ehdr, sizeof(ethernet_hdr));
         std::shared_ptr<ArpRequest> arp_req = m_arp.queueRequest(lookupAddress, packet, outIface->name);
+        // Handle ARP request
+        if (!m_arp.handle_arpreq(arp_req))
+        {
+          m_arp.removeRequest(arp_req);
+        }
         return;
       }
       else
@@ -372,7 +461,7 @@ namespace simple_router
   {
     while (!m_shouldStop)
     {
-      std::this_thread::sleep_for(std::chrono::seconds(1));
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
       // Send packet
       if (!m_waitingPackets.empty())
